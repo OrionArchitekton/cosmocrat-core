@@ -1,0 +1,12 @@
+name: inbox.triage
+description: Triage a single inbox message by id and propose a draft.
+input_schema:
+  type: object
+  properties:
+    message_id: { type: string }
+  required: [message_id]
+output_schema:
+  type: object
+  properties:
+    label: { type: string }
+    draft_id: { type: string }

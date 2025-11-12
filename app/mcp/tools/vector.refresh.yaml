@@ -1,0 +1,14 @@
+name: vector.refresh
+description: Refresh the knowledge base embeddings from sources.
+input_schema:
+  type: object
+  properties:
+    source: { type: string, enum: [drive, notion] }
+    tenant: { type: string }
+    paths: { type: array, items: { type: string } }
+  required: [source]
+output_schema:
+  type: object
+  properties:
+    documents_indexed: { type: integer }
+    skipped: { type: integer }

@@ -1,0 +1,11 @@
+{
+  "schema": "run_artifact",
+  "version": "1.0.0",
+  "fields": [
+    "run_id",
+    "artifact_type",
+    "uri",
+    "checksum",
+    "ts"
+  ]
+}

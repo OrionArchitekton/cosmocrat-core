@@ -1,0 +1,71 @@
+{
+  "name": "post_setup_bootstrap",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "bootstrap/hello"
+      },
+      "id": "1",
+      "name": "HTTP Trigger",
+      "type": "n8n-nodes-base.httpTrigger",
+      "typeVersion": 3,
+      "position": [
+        -420,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{json:{ok:true, note:'add credentials in n8n UI \u2192 Credentials'}}];"
+      },
+      "id": "2",
+      "name": "Function",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "responseBody": "={{$json}}"
+      },
+      "id": "3",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        80,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "HTTP Trigger": {
+      "main": [
+        [
+          {
+            "node": "Function",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Function": {
+      "main": [
+        [
+          {
+            "node": "Respond",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "staticData": null
+}

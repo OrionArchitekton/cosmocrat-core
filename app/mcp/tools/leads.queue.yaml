@@ -1,0 +1,20 @@
+name: leads.queue
+description: Queue a batch of leads for enrichment and outreach.
+input_schema:
+  type: object
+  properties:
+    source: { type: string }
+    records:
+      type: array
+      items:
+        type: object
+        properties:
+          company: { type: string }
+          contact: { type: string }
+          email: { type: string }
+  required: [source]
+output_schema:
+  type: object
+  properties:
+    accepted: { type: integer }
+    rejected: { type: integer }

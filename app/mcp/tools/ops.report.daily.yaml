@@ -1,0 +1,12 @@
+name: ops.report.daily
+description: Compile the daily KPI report from Langfuse and Postgres.
+input_schema:
+  type: object
+  properties:
+    date: { type: string, description: "YYYY-MM-DD" }
+  required: [date]
+output_schema:
+  type: object
+  properties:
+    doc_url: { type: string }
+    kpis: { type: object, additionalProperties: true }

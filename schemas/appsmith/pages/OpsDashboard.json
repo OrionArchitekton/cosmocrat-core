@@ -1,0 +1,4 @@
+{
+  "page": "OpsDashboard",
+  "notes": "Add stats for Langfuse cost/latency, cloud-hit rate, unknown trend; links to MCP health and n8n executions."
+}

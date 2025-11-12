@@ -1,0 +1,352 @@
+version: "3.9"
+x-doppler: &doppler-env
+  environment:{{range $key, $value := .DopplerVariables | toJSON }}
+    - {{$key}}={{$value}}{{end}}
+services:
+  traefik:
+    image: traefik:v2.11
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:8888
+    ports:
+      - "8888:8888"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.dashboard.rule=Host(`ops.localhost`) && PathPrefix(`/traefik`)
+      - traefik.http.routers.dashboard.service=api@internal
+    restart: unless-stopped
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_PASSWORD: ${DB_POSTGRESDB_PASSWORD:-${PG_PASSWORD}}
+      POSTGRES_USER: ${DB_POSTGRESDB_USER:-${PG_USER}}
+      POSTGRES_DB: ${PG_DB:-cosmocrat}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_POSTGRESDB_USER:-${PG_USER}} -d ${PG_DB:-cosmocrat}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    labels:
+      - traefik.enable=false
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    labels:
+      - traefik.enable=false
+    restart: unless-stopped      
+
+  langfuse:
+    image: ghcr.io/langfuse/langfuse:latest
+    environment:
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      DATABASE_URL: ${DATABASE_URL:-postgres://${DB_POSTGRESDB_USER:-${PG_USER}}:${DB_POSTGRESDB_PASSWORD:-${PG_PASSWORD}}@postgres:5432/${PG_DB:-cosmocrat}}
+      NEXT_PUBLIC_SIGNUP_DISABLED: "true"
+      # LangCache → Redis (DB index 3 recommended)
+      LANGFUSE_CACHE_BACKEND: ${LANGFUSE_CACHE_BACKEND:-redis}
+      LANGFUSE_REDIS_URL: ${LANGFUSE_REDIS_URL:-redis://redis:6379/3}
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS localhost:3000/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.langfuse.rule=Host(`ops.localhost`) && PathPrefix(`/langfuse`)
+      - traefik.http.middlewares.langfuse-strip.stripprefix.prefixes=/langfuse
+      - traefik.http.routers.langfuse.middlewares=langfuse-strip
+      - traefik.http.services.langfuse.loadbalancer.server.port=3000
+    restart: unless-stopped      
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - /opt/orion/models:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.ollama.rule=Host(`ops.localhost`) && PathPrefix(`/llm`)
+      - traefik.http.services.ollama.loadbalancer.server.port=11434
+      - traefik.http.middlewares.ollama-strip.stripprefix.prefixes=/llm
+      - traefik.http.routers.ollama.middlewares=ollama-strip
+    restart: unless-stopped     
+  # vLLM disabled - using Ollama for CPU inference instead
+  # vllm:
+  #   image: vllm/vllm-openai:0.6.2.post1-cpu
+  #   command:
+  #     - "--model"
+  #     - "Qwen/Qwen2.5-0.5B-Instruct"
+  #     - "--host"
+  #     - "0.0.0.0"
+  #     - "--port"
+  #     - "8000"
+  #     - "--max-model-len"
+  #     - "4096"
+  #     - "--enforce-eager"
+  #   environment:
+  #     - VLLM_LOGGING_LEVEL=INFO
+  #     - VLLM_TARGET_DEVICE=cpu
+  #     - VLLM_USE_RAY=0
+  #     - VLLM_DISABLE_CUSTOM_OPS=1
+  #     - CUDA_VISIBLE_DEVICES=""
+  #     - HF_HOME=/models
+  #     - HF_HUB_ENABLE_HF_TRANSFER=1
+  #   volumes:
+  #     - /opt/orion/models:/models
+  #   ports:
+  #     - "8000:8000"
+  #   labels:
+  #     - traefik.enable=true
+  #     - traefik.http.routers.vllm.rule=Host(`ops.localhost`) && PathPrefix(`/vllm`)
+  #     - traefik.http.middlewares.vllm-strip.stripprefix.prefixes=/vllm
+  #     - traefik.http.routers.vllm.middlewares=vllm-strip
+  #     - traefik.http.services.vllm.loadbalancer.server.port=8000
+  #   restart: unless-stopped
+
+  edge-orchestrator:
+    build: ./app/services/edge-orchestrator
+    environment:
+      # Core
+      PG_URL: postgres://${DB_POSTGRESDB_USER:-${PG_USER}}:${DB_POSTGRESDB_PASSWORD:-${PG_PASSWORD}}@postgres:5432/${PG_DB:-cosmocrat}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      LANGFUSE_HOST: ${LANGFUSE_BASE_URL:-http://langfuse:3000}
+      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-http://langfuse:3000}
+      # ClickHouse dual URLs (set in Doppler)
+      CH_URL_PRIMARY: ${CH_URL_PRIMARY}
+      CH_URL_FALLBACK: ${CH_URL_FALLBACK}
+      # Supabase (optional usage in tools)
+      SB_URL: ${SB_URL}
+      SB_ANON_KEY: ${SB_ANON_KEY}
+      SB_POSTGRES_URL: ${SB_POSTGRES_URL}
+      # Slack (optional)
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
+      # LLM Authentication (subscription-based Ultra/Pro - prioritized)
+      # For headless: Use OPENAI_API_KEY (recommended)
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_USER: ${OPENAI_USER:-${CODEX_USER}}
+      OPENAI_PASSWORD: ${OPENAI_PASSWORD:-${CODEX_PASSWORD}}
+      OPENAI_TOKEN: ${OPENAI_TOKEN:-${CODEX_TOKEN}}
+      ANTHROPIC_USER: ${ANTHROPIC_USER:-${CLAUDE_USER}}
+      ANTHROPIC_PASSWORD: ${ANTHROPIC_PASSWORD:-${CLAUDE_PASSWORD}}
+      ANTHROPIC_TOKEN: ${ANTHROPIC_TOKEN:-${CLAUDE_TOKEN}}
+      GEMINI_USER: ${GEMINI_USER:-${GOOGLE_USER}}
+      GEMINI_PASSWORD: ${GEMINI_PASSWORD:-${GOOGLE_PASSWORD}}
+      GEMINI_TOKEN: ${GEMINI_TOKEN:-${GOOGLE_TOKEN}}
+    depends_on:
+      - postgres
+      - redis
+      - langfuse
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS localhost:8000/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  confirm-engine:
+    build: ./app/services/confirm-engine
+    environment:
+      PG_URL: postgres://${DB_POSTGRESDB_USER:-${PG_USER}}:${DB_POSTGRESDB_PASSWORD:-${PG_PASSWORD}}@postgres:5432/${PG_DB:-cosmocrat}
+      REDIS_URL: ${CONFIRM_REDIS_URL:-redis://redis:6379/1}
+      LANGFUSE_HOST: ${LANGFUSE_BASE_URL:-http://langfuse:3000}
+      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-http://langfuse:3000}
+      CH_URL_PRIMARY: ${CH_URL_PRIMARY}
+      CH_URL_FALLBACK: ${CH_URL_FALLBACK}
+      # Supabase (optional usage in tools)
+      SB_URL: ${SB_URL}
+      SB_ANON_KEY: ${SB_ANON_KEY}
+      SB_POSTGRES_URL: ${SB_POSTGRES_URL}
+      # LLM Authentication (subscription-based Ultra/Pro - prioritized)
+      # For headless: Use OPENAI_API_KEY (recommended)
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_USER: ${OPENAI_USER:-${CODEX_USER}}
+      OPENAI_PASSWORD: ${OPENAI_PASSWORD:-${CODEX_PASSWORD}}
+      OPENAI_TOKEN: ${OPENAI_TOKEN:-${CODEX_TOKEN}}
+      ANTHROPIC_USER: ${ANTHROPIC_USER:-${CLAUDE_USER}}
+      ANTHROPIC_PASSWORD: ${ANTHROPIC_PASSWORD:-${CLAUDE_PASSWORD}}
+      ANTHROPIC_TOKEN: ${ANTHROPIC_TOKEN:-${CLAUDE_TOKEN}}
+      GEMINI_USER: ${GEMINI_USER:-${GOOGLE_USER}}
+      GEMINI_PASSWORD: ${GEMINI_PASSWORD:-${GOOGLE_PASSWORD}}
+      GEMINI_TOKEN: ${GEMINI_TOKEN:-${GOOGLE_TOKEN}}
+    depends_on:
+      - postgres
+      - redis
+      - edge-orchestrator
+    ports:
+      - "8010:8010"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS localhost:8010/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  deploy-memory:
+    build: ./app/services/deploy-memory
+    environment:
+      PG_URL: postgres://${DB_POSTGRESDB_USER:-${PG_USER}}:${DB_POSTGRESDB_PASSWORD:-${PG_PASSWORD}}@postgres:5432/${PG_DB:-cosmocrat}
+      REDIS_URL: ${DEPLOY_REDIS_URL:-redis://redis:6379/2}
+      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-http://langfuse:3000}
+      CH_URL_PRIMARY: ${CH_URL_PRIMARY}
+      CH_URL_FALLBACK: ${CH_URL_FALLBACK}
+      # Supabase (optional usage in tools)
+      SB_URL: ${SB_URL}
+      SB_ANON_KEY: ${SB_ANON_KEY}
+      SB_POSTGRES_URL: ${SB_POSTGRES_URL}
+      # LLM Authentication (subscription-based Ultra/Pro - prioritized)
+      # For headless: Use OPENAI_API_KEY (recommended)
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_USER: ${OPENAI_USER:-${CODEX_USER}}
+      OPENAI_PASSWORD: ${OPENAI_PASSWORD:-${CODEX_PASSWORD}}
+      OPENAI_TOKEN: ${OPENAI_TOKEN:-${CODEX_TOKEN}}
+      ANTHROPIC_USER: ${ANTHROPIC_USER:-${CLAUDE_USER}}
+      ANTHROPIC_PASSWORD: ${ANTHROPIC_PASSWORD:-${CLAUDE_PASSWORD}}
+      ANTHROPIC_TOKEN: ${ANTHROPIC_TOKEN:-${CLAUDE_TOKEN}}
+      GEMINI_USER: ${GEMINI_USER:-${GOOGLE_USER}}
+      GEMINI_PASSWORD: ${GEMINI_PASSWORD:-${GOOGLE_PASSWORD}}
+      GEMINI_TOKEN: ${GEMINI_TOKEN:-${GOOGLE_TOKEN}}
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "8020:8020"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS localhost:8020/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  # ---------- Optional profiles ----------
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    profiles: ["analytics"]
+    environment:
+      CLICKHOUSE_DB: cosmocrat
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    ports:
+      - "8123:8123"   # HTTP
+      - "9000:9000"   # Native
+    volumes:
+      - ch_data:/var/lib/clickhouse
+      - ch_logs:/var/log/clickhouse-server
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8123/?query=SELECT%201 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 20
+
+  n8n:
+    image: n8nio/n8n:latest
+    profiles: ["automation"]
+    environment:
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_USER:-admin}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_PASS:-change-me}
+      N8N_HOST: localhost
+      N8N_PROTOCOL: http
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+  appsmith:
+    image: appsmith/appsmith-ce
+    profiles: ["cockpit"]
+    ports:
+      - "8580:80"
+      - "8443:443"
+    volumes:
+      - appsmith_stacks:/appsmith-stacks
+
+  memory-consolidator:
+    image: python:3.11-slim
+    volumes:
+      - ./jobs/memory:/app:ro
+    working_dir: /app
+    command: ["sh", "-c", "pip install --no-cache-dir --quiet requests 'psycopg[binary]' >/dev/null 2>&1 && while true; do python /app/consolidate.py; echo '[INFO] Sleeping for 24 hours until next run...'; sleep 86400; done"]
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      PG_URL: postgres://${DB_POSTGRESDB_USER:-${PG_USER}}:${DB_POSTGRESDB_PASSWORD:-${PG_PASSWORD}}@postgres:5432/${PG_DB:-cosmocrat}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-http://langfuse:3000}
+      # Supabase (optional usage in tools)
+      SB_URL: ${SB_URL}
+      SB_ANON_KEY: ${SB_ANON_KEY}
+      SB_POSTGRES_URL: ${SB_POSTGRES_URL}
+    depends_on: [postgres, redis, langfuse]
+    restart: unless-stopped
+
+  mcp:
+    build:
+      context: ./app/mcp
+      dockerfile: Dockerfile
+    environment:
+      PG_URL: postgres://${DB_POSTGRESDB_USER:-${PG_USER}}:${DB_POSTGRESDB_PASSWORD:-${PG_PASSWORD}}@postgres:5432/${PG_DB:-cosmocrat}
+      REDIS_URL: redis://redis:6379/0
+      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-http://langfuse:3000}
+      # Supabase (optional usage in tools)
+      SB_URL: ${SB_URL}
+      SB_ANON_KEY: ${SB_ANON_KEY}
+      SB_POSTGRES_URL: ${SB_POSTGRES_URL}
+      # MCP authentication
+      MCP_TOKEN: ${MCP_TOKEN}
+      # LLM Authentication (subscription-based Ultra/Pro - prioritized)
+      # For headless: Use OPENAI_API_KEY (recommended)
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_USER: ${OPENAI_USER:-${CODEX_USER}}
+      OPENAI_PASSWORD: ${OPENAI_PASSWORD:-${CODEX_PASSWORD}}
+      OPENAI_TOKEN: ${OPENAI_TOKEN:-${CODEX_TOKEN}}
+      ANTHROPIC_USER: ${ANTHROPIC_USER:-${CLAUDE_USER}}
+      ANTHROPIC_PASSWORD: ${ANTHROPIC_PASSWORD:-${CLAUDE_PASSWORD}}
+      ANTHROPIC_TOKEN: ${ANTHROPIC_TOKEN:-${CLAUDE_TOKEN}}
+      GEMINI_USER: ${GEMINI_USER:-${GOOGLE_USER}}
+      GEMINI_PASSWORD: ${GEMINI_PASSWORD:-${GOOGLE_PASSWORD}}
+      GEMINI_TOKEN: ${GEMINI_TOKEN:-${GOOGLE_TOKEN}}
+    depends_on: [postgres, redis, langfuse, ollama]
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS localhost:8080/healthz || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.mcp.rule=Host(`mcp.localhost`)
+      - traefik.http.services.mcp.loadbalancer.server.port=8080
+    restart: unless-stopped
+
+
+volumes:
+  pg_data:
+  redis_data:
+  ch_data:
+  ch_logs:
+  n8n_data:
+  appsmith_stacks:
+  mcp_data:
+  clickhouse_data:

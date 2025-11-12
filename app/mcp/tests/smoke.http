@@ -1,0 +1,8 @@
+### MCP health
+GET http://mcp.localhost/healthz
+
+### Langfuse ping (UI path)
+GET http://ops.localhost/langfuse
+
+### n8n index
+GET http://ops.localhost/n8n

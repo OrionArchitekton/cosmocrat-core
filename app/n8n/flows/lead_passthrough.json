@@ -1,0 +1,50 @@
+{
+  "name": "lead_passthrough",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "leads/queue",
+        "options": {}
+      },
+      "id": "1",
+      "name": "HTTP Trigger",
+      "type": "n8n-nodes-base.httpTrigger",
+      "typeVersion": 3,
+      "position": [
+        -320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "http://mcp:8080/tools/leads.queue",
+        "method": "POST",
+        "jsonParameters": true
+      },
+      "id": "2",
+      "name": "HTTP Request (MCP)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        -60,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "HTTP Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request (MCP)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {},
+  "staticData": null
+}

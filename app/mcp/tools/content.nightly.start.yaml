@@ -1,0 +1,14 @@
+name: content.nightly.start
+description: Start the nightly content pipeline for a lane.
+input_schema:
+  type: object
+  properties:
+    lane: { type: string, enum: [re, ecom, tarot] }
+    topics: { type: array, items: { type: string } }
+    dry_run: { type: boolean, default: false }
+  required: [lane]
+output_schema:
+  type: object
+  properties:
+    run_id: { type: string }
+    status: { type: string }
