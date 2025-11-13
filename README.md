@@ -2,9 +2,38 @@
 
 Core runtime for headless MCP mini PC deployment. Includes PostgreSQL (pgvector), Redis, Langfuse, Ollama, and core services.
 
-## Quick Start (5 Steps)
+## Quick Start
 
-### 1. Clone & Enter Directory
+### Option A: USB Stick Cloud-Init (Headless Ubuntu)
+
+1. **Get Tailscale auth key:**
+   - Go to [Tailscale Admin Console](https://login.tailscale.com/admin/settings/keys)
+   - Generate auth key (reusable or one-time)
+
+2. **Prepare USB stick:**
+   - Format as FAT32
+   - Copy `user-data` file to USB root
+   - Update: Tailscale auth key, repo URL, password hash
+   - Boot mini PC from USB
+
+3. **After first boot:**
+   ```bash
+   # Find hostname/IP in Tailscale admin console or:
+   tailscale status  # on another device
+   
+   # SSH via Tailscale:
+   ssh cosmocrat@edge-01
+   
+   # Configure & deploy:
+   doppler login && doppler setup
+   cd cosmocrat-core && ./ops/scripts/bootstrap.sh
+   ```
+
+📖 **See [USB-SETUP.md](USB-SETUP.md) for detailed cloud-init setup**
+
+### Option B: Manual Setup (5 Steps)
+
+#### 1. Clone & Enter Directory
 ```bash
 git clone <your-repo-url>
 cd cosmocrat-core
@@ -32,8 +61,17 @@ doppler setup  # Select your project
 ### 4. Deploy Everything
 ```bash
 chmod +x ops/scripts/*.sh
+
+# Optional: Clean up old images first (prevents conflicts)
+./ops/scripts/cleanup.sh
+
+# Deploy everything (automatically cleans up old images)
 ./ops/scripts/bootstrap.sh
 ```
+
+**Note:** 
+- Bootstrap automatically cleans up old images before building
+- Run `./ops/scripts/cleanup.sh --volumes` to also remove data volumes (fresh start, but loses all data)
 
 ### 5. Verify It's Green
 ```bash
