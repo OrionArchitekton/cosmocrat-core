@@ -23,6 +23,13 @@ fi
 echo "✓ Doppler configured"
 echo ""
 
+# Clean up old images to avoid conflicts
+echo "🧹 Cleaning up old images..."
+doppler run -- docker compose down --rmi local --remove-orphans 2>/dev/null || true
+docker image prune -f >/dev/null 2>&1 || true
+echo "✓ Cleanup complete"
+echo ""
+
 # Build all services
 echo "📦 Building Docker images..."
 doppler run -- docker compose build --no-cache
