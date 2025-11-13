@@ -145,16 +145,6 @@ services:
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
       # LLM Authentication (subscription-based Ultra/Pro - prioritized)
       # For headless: Use OPENAI_API_KEY (recommended)
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_USER: ${OPENAI_USER:-${CODEX_USER}}
-      OPENAI_PASSWORD: ${OPENAI_PASSWORD:-${CODEX_PASSWORD}}
-      OPENAI_TOKEN: ${OPENAI_TOKEN:-${CODEX_TOKEN}}
-      ANTHROPIC_USER: ${ANTHROPIC_USER:-${CLAUDE_USER}}
-      ANTHROPIC_PASSWORD: ${ANTHROPIC_PASSWORD:-${CLAUDE_PASSWORD}}
-      ANTHROPIC_TOKEN: ${ANTHROPIC_TOKEN:-${CLAUDE_TOKEN}}
-      GEMINI_USER: ${GEMINI_USER:-${GOOGLE_USER}}
-      GEMINI_PASSWORD: ${GEMINI_PASSWORD:-${GOOGLE_PASSWORD}}
-      GEMINI_TOKEN: ${GEMINI_TOKEN:-${GOOGLE_TOKEN}}
     depends_on:
       - postgres
       - redis
@@ -182,16 +172,6 @@ services:
       SB_POSTGRES_URL: ${SB_POSTGRES_URL}
       # LLM Authentication (subscription-based Ultra/Pro - prioritized)
       # For headless: Use OPENAI_API_KEY (recommended)
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_USER: ${OPENAI_USER:-${CODEX_USER}}
-      OPENAI_PASSWORD: ${OPENAI_PASSWORD:-${CODEX_PASSWORD}}
-      OPENAI_TOKEN: ${OPENAI_TOKEN:-${CODEX_TOKEN}}
-      ANTHROPIC_USER: ${ANTHROPIC_USER:-${CLAUDE_USER}}
-      ANTHROPIC_PASSWORD: ${ANTHROPIC_PASSWORD:-${CLAUDE_PASSWORD}}
-      ANTHROPIC_TOKEN: ${ANTHROPIC_TOKEN:-${CLAUDE_TOKEN}}
-      GEMINI_USER: ${GEMINI_USER:-${GOOGLE_USER}}
-      GEMINI_PASSWORD: ${GEMINI_PASSWORD:-${GOOGLE_PASSWORD}}
-      GEMINI_TOKEN: ${GEMINI_TOKEN:-${GOOGLE_TOKEN}}
     depends_on:
       - postgres
       - redis
@@ -218,16 +198,6 @@ services:
       SB_POSTGRES_URL: ${SB_POSTGRES_URL}
       # LLM Authentication (subscription-based Ultra/Pro - prioritized)
       # For headless: Use OPENAI_API_KEY (recommended)
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_USER: ${OPENAI_USER:-${CODEX_USER}}
-      OPENAI_PASSWORD: ${OPENAI_PASSWORD:-${CODEX_PASSWORD}}
-      OPENAI_TOKEN: ${OPENAI_TOKEN:-${CODEX_TOKEN}}
-      ANTHROPIC_USER: ${ANTHROPIC_USER:-${CLAUDE_USER}}
-      ANTHROPIC_PASSWORD: ${ANTHROPIC_PASSWORD:-${CLAUDE_PASSWORD}}
-      ANTHROPIC_TOKEN: ${ANTHROPIC_TOKEN:-${CLAUDE_TOKEN}}
-      GEMINI_USER: ${GEMINI_USER:-${GOOGLE_USER}}
-      GEMINI_PASSWORD: ${GEMINI_PASSWORD:-${GOOGLE_PASSWORD}}
-      GEMINI_TOKEN: ${GEMINI_TOKEN:-${GOOGLE_TOKEN}}
     depends_on:
       - postgres
       - redis
@@ -315,18 +285,7 @@ services:
       SB_POSTGRES_URL: ${SB_POSTGRES_URL}
       # MCP authentication
       MCP_TOKEN: ${MCP_TOKEN}
-      # LLM Authentication (subscription-based Ultra/Pro - prioritized)
-      # For headless: Use OPENAI_API_KEY (recommended)
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_USER: ${OPENAI_USER:-${CODEX_USER}}
-      OPENAI_PASSWORD: ${OPENAI_PASSWORD:-${CODEX_PASSWORD}}
-      OPENAI_TOKEN: ${OPENAI_TOKEN:-${CODEX_TOKEN}}
-      ANTHROPIC_USER: ${ANTHROPIC_USER:-${CLAUDE_USER}}
-      ANTHROPIC_PASSWORD: ${ANTHROPIC_PASSWORD:-${CLAUDE_PASSWORD}}
-      ANTHROPIC_TOKEN: ${ANTHROPIC_TOKEN:-${CLAUDE_TOKEN}}
-      GEMINI_USER: ${GEMINI_USER:-${GOOGLE_USER}}
-      GEMINI_PASSWORD: ${GEMINI_PASSWORD:-${GOOGLE_PASSWORD}}
-      GEMINI_TOKEN: ${GEMINI_TOKEN:-${GOOGLE_TOKEN}}
+
     depends_on: [postgres, redis, langfuse, ollama]
     ports:
       - "8080:8080"
