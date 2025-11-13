@@ -1592,7 +1592,8 @@
           "description": "Language Model to run."
         },
         "context_size": {
-          "type": "integer"
+          "type": "integer",
+          "description": "Maximum context window size for the model in tokens."
         },
         "runtime_flags": {
           "type": "array",
