@@ -58,6 +58,7 @@ services:
       # LangCache → Redis (DB index 3 recommended)
       LANGFUSE_CACHE_BACKEND: ${LANGFUSE_CACHE_BACKEND:-redis}
       LANGFUSE_REDIS_URL: ${LANGFUSE_REDIS_URL:-redis://redis:6379/3}
+      CLICKHOUSE_URL: ${CLICKHOUSE_URL:-http://clickhouse:8123}
     depends_on:
       - postgres
       - redis
