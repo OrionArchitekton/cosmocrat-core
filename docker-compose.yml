@@ -76,7 +76,7 @@ services:
       CLICKHOUSE_CLUSTER_ENABLED: ${CLICKHOUSE_CLUSTER_ENABLED:-false}
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
-      REDIS_AUTH: ${REDIS_AUTH:-myredissecret} # CHANGEME
+      REDIS_AUTH: ${REDIS_AUTH}
       REDIS_TLS_ENABLED: ${REDIS_TLS_ENABLED:-false}
   
   langfuse:
