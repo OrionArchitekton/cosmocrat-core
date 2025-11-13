@@ -25,7 +25,7 @@ services:
       POSTGRES_USER: ${DB_POSTGRESDB_USER:-${PG_USER}}
       POSTGRES_DB: ${PG_DB:-cosmocrat}
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - PGDATA:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_POSTGRESDB_USER:-${PG_USER}} -d ${PG_DB:-cosmocrat}"]
       interval: 5s
@@ -48,34 +48,74 @@ services:
     labels:
       - traefik.enable=false
     restart: unless-stopped      
-
-  langfuse:
-    image: ghcr.io/langfuse/langfuse:latest
-    environment:
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
-      DATABASE_URL: ${DATABASE_URL:-postgres://${DB_POSTGRESDB_USER:-${PG_USER}}:${DB_POSTGRESDB_PASSWORD:-${PG_PASSWORD}}@postgres:5432/${PG_DB:-cosmocrat}}
-      NEXT_PUBLIC_SIGNUP_DISABLED: "true"
-      # LangCache → Redis (DB index 3 recommended)
-      LANGFUSE_CACHE_BACKEND: ${LANGFUSE_CACHE_BACKEND:-redis}
-      LANGFUSE_REDIS_URL: ${LANGFUSE_REDIS_URL:-redis://redis:6379/3}
-      CLICKHOUSE_URL: ${CLICKHOUSE_URL:-http://clickhouse:8123}
-    depends_on:
-      - postgres
-      - redis
+  langfuse-worker:
+    image: docker.io/langfuse/langfuse-worker:3
+    restart: always
+    depends_on: &langfuse-depends-on
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
     ports:
-      - "3000:3000"
+      - 127.0.0.1:3030:3030
+    environment: &langfuse-worker-env
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/postgres} # CHANGEME
+      SALT: ${SALT} # REQUIRED: set a secure value
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY} # REQUIRED: generate via `openssl rand -hex 32`
+      TELEMETRY_ENABLED: ${TELEMETRY_ENABLED:-true}
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: ${LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES:-true}
+      CLICKHOUSE_MIGRATION_URL: ${CLICKHOUSE_MIGRATION_URL:-clickhouse://clickhouse:9000}
+      CLICKHOUSE_URL: ${CLICKHOUSE_URL:-http://clickhouse:8123}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-clickhouse}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-clickhouse} # CHANGEME
+      CLICKHOUSE_CLUSTER_ENABLED: ${CLICKHOUSE_CLUSTER_ENABLED:-false}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_AUTH: ${REDIS_AUTH}
+      REDIS_TLS_ENABLED: ${REDIS_TLS_ENABLED:-false}
+  
+  langfuse:
+    image: docker.io/langfuse/langfuse:3
+    restart: always
+    depends_on: *langfuse-depends-on
+    ports:
+      - 3000:3000
+    environment:
+      <<: *langfuse-worker-env
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET} # REQUIRED: must be set to a cryptographically secure value
+      LANGFUSE_INIT_ORG_ID: ${LANGFUSE_INIT_ORG_ID:-}
+      LANGFUSE_INIT_ORG_NAME: ${LANGFUSE_INIT_ORG_NAME:-}
+      LANGFUSE_INIT_PROJECT_ID: ${LANGFUSE_INIT_PROJECT_ID:-}
+      LANGFUSE_INIT_PROJECT_NAME: ${LANGFUSE_INIT_PROJECT_NAME:-}
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_INIT_PROJECT_PUBLIC_KEY:-}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_INIT_PROJECT_SECRET_KEY:-}
+
+
+  clickhouse:
+    image: docker.io/clickhouse/clickhouse-server
+    restart: always
+    user: "101:101"
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-clickhouse}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?Set CLICKHOUSE_PASSWORD to a strong password} # REQUIRED
+    volumes:
+      - langfuse_clickhouse_data:/var/lib/clickhouse
+      - langfuse_clickhouse_logs:/var/log/clickhouse-server
+    ports:
+      - 127.0.0.1:8123:8123
+      - 127.0.0.1:9000:9000
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS localhost:3000/health || exit 1"]
+      test: wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1
       interval: 5s
-      timeout: 3s
-      retries: 30
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.langfuse.rule=Host(`ops.localhost`) && PathPrefix(`/langfuse`)
-      - traefik.http.middlewares.langfuse-strip.stripprefix.prefixes=/langfuse
-      - traefik.http.routers.langfuse.middlewares=langfuse-strip
-      - traefik.http.services.langfuse.loadbalancer.server.port=3000
-    restart: unless-stopped      
+      timeout: 5s
+      retries: 10
+      start_period: 1s
 
   ollama:
     image: ollama/ollama:latest
@@ -135,9 +175,8 @@ services:
       LANGFUSE_HOST: ${LANGFUSE_BASE_URL:-http://langfuse:3000}
       LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-http://langfuse:3000}
       # ClickHouse dual URLs (set in Doppler)
-      CH_URL_PRIMARY: ${CH_URL_PRIMARY}
-      CH_URL_FALLBACK: ${CH_URL_FALLBACK}
-      # Supabase (optional usage in tools)
+      CLICKHOUSE_URL: ${CLICKHOUSE_URL}
+          # Supabase (optional usage in tools)
       SB_URL: ${SB_URL}
       SB_ANON_KEY: ${SB_ANON_KEY}
       SB_POSTGRES_URL: ${SB_POSTGRES_URL}
@@ -145,16 +184,6 @@ services:
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL}
       # LLM Authentication (subscription-based Ultra/Pro - prioritized)
       # For headless: Use OPENAI_API_KEY (recommended)
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_USER: ${OPENAI_USER:-${CODEX_USER}}
-      OPENAI_PASSWORD: ${OPENAI_PASSWORD:-${CODEX_PASSWORD}}
-      OPENAI_TOKEN: ${OPENAI_TOKEN:-${CODEX_TOKEN}}
-      ANTHROPIC_USER: ${ANTHROPIC_USER:-${CLAUDE_USER}}
-      ANTHROPIC_PASSWORD: ${ANTHROPIC_PASSWORD:-${CLAUDE_PASSWORD}}
-      ANTHROPIC_TOKEN: ${ANTHROPIC_TOKEN:-${CLAUDE_TOKEN}}
-      GEMINI_USER: ${GEMINI_USER:-${GOOGLE_USER}}
-      GEMINI_PASSWORD: ${GEMINI_PASSWORD:-${GOOGLE_PASSWORD}}
-      GEMINI_TOKEN: ${GEMINI_TOKEN:-${GOOGLE_TOKEN}}
     depends_on:
       - postgres
       - redis
@@ -171,27 +200,17 @@ services:
     build: ./app/services/confirm-engine
     environment:
       PG_URL: postgres://${DB_POSTGRESDB_USER:-${PG_USER}}:${DB_POSTGRESDB_PASSWORD:-${PG_PASSWORD}}@postgres:5432/${PG_DB:-cosmocrat}
-      REDIS_URL: ${CONFIRM_REDIS_URL:-redis://redis:6379/1}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/1}
       LANGFUSE_HOST: ${LANGFUSE_BASE_URL:-http://langfuse:3000}
       LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-http://langfuse:3000}
-      CH_URL_PRIMARY: ${CH_URL_PRIMARY}
-      CH_URL_FALLBACK: ${CH_URL_FALLBACK}
+      CLICKHOUSE_URL: ${CLICKHOUSE_URL}
+  
       # Supabase (optional usage in tools)
       SB_URL: ${SB_URL}
       SB_ANON_KEY: ${SB_ANON_KEY}
       SB_POSTGRES_URL: ${SB_POSTGRES_URL}
       # LLM Authentication (subscription-based Ultra/Pro - prioritized)
       # For headless: Use OPENAI_API_KEY (recommended)
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_USER: ${OPENAI_USER:-${CODEX_USER}}
-      OPENAI_PASSWORD: ${OPENAI_PASSWORD:-${CODEX_PASSWORD}}
-      OPENAI_TOKEN: ${OPENAI_TOKEN:-${CODEX_TOKEN}}
-      ANTHROPIC_USER: ${ANTHROPIC_USER:-${CLAUDE_USER}}
-      ANTHROPIC_PASSWORD: ${ANTHROPIC_PASSWORD:-${CLAUDE_PASSWORD}}
-      ANTHROPIC_TOKEN: ${ANTHROPIC_TOKEN:-${CLAUDE_TOKEN}}
-      GEMINI_USER: ${GEMINI_USER:-${GOOGLE_USER}}
-      GEMINI_PASSWORD: ${GEMINI_PASSWORD:-${GOOGLE_PASSWORD}}
-      GEMINI_TOKEN: ${GEMINI_TOKEN:-${GOOGLE_TOKEN}}
     depends_on:
       - postgres
       - redis
@@ -210,24 +229,13 @@ services:
       PG_URL: postgres://${DB_POSTGRESDB_USER:-${PG_USER}}:${DB_POSTGRESDB_PASSWORD:-${PG_PASSWORD}}@postgres:5432/${PG_DB:-cosmocrat}
       REDIS_URL: ${DEPLOY_REDIS_URL:-redis://redis:6379/2}
       LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-http://langfuse:3000}
-      CH_URL_PRIMARY: ${CH_URL_PRIMARY}
-      CH_URL_FALLBACK: ${CH_URL_FALLBACK}
-      # Supabase (optional usage in tools)
+      CLICKHOUSE_URL: ${CLICKHOUSE_URL}
+        # Supabase (optional usage in tools)
       SB_URL: ${SB_URL}
       SB_ANON_KEY: ${SB_ANON_KEY}
       SB_POSTGRES_URL: ${SB_POSTGRES_URL}
       # LLM Authentication (subscription-based Ultra/Pro - prioritized)
       # For headless: Use OPENAI_API_KEY (recommended)
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_USER: ${OPENAI_USER:-${CODEX_USER}}
-      OPENAI_PASSWORD: ${OPENAI_PASSWORD:-${CODEX_PASSWORD}}
-      OPENAI_TOKEN: ${OPENAI_TOKEN:-${CODEX_TOKEN}}
-      ANTHROPIC_USER: ${ANTHROPIC_USER:-${CLAUDE_USER}}
-      ANTHROPIC_PASSWORD: ${ANTHROPIC_PASSWORD:-${CLAUDE_PASSWORD}}
-      ANTHROPIC_TOKEN: ${ANTHROPIC_TOKEN:-${CLAUDE_TOKEN}}
-      GEMINI_USER: ${GEMINI_USER:-${GOOGLE_USER}}
-      GEMINI_PASSWORD: ${GEMINI_PASSWORD:-${GOOGLE_PASSWORD}}
-      GEMINI_TOKEN: ${GEMINI_TOKEN:-${GOOGLE_TOKEN}}
     depends_on:
       - postgres
       - redis
@@ -239,24 +247,7 @@ services:
       timeout: 3s
       retries: 10
 
-  # ---------- Optional profiles ----------
-  clickhouse:
-    image: clickhouse/clickhouse-server:24.8
-    profiles: ["analytics"]
-    environment:
-      CLICKHOUSE_DB: cosmocrat
-      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
-    ports:
-      - "8123:8123"   # HTTP
-      - "9000:9000"   # Native
-    volumes:
-      - ch_data:/var/lib/clickhouse
-      - ch_logs:/var/log/clickhouse-server
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8123/?query=SELECT%201 || exit 1"]
-      interval: 10s
-      timeout: 3s
-      retries: 20
+ 
 
   n8n:
     image: n8nio/n8n:latest
@@ -315,18 +306,7 @@ services:
       SB_POSTGRES_URL: ${SB_POSTGRES_URL}
       # MCP authentication
       MCP_TOKEN: ${MCP_TOKEN}
-      # LLM Authentication (subscription-based Ultra/Pro - prioritized)
-      # For headless: Use OPENAI_API_KEY (recommended)
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_USER: ${OPENAI_USER:-${CODEX_USER}}
-      OPENAI_PASSWORD: ${OPENAI_PASSWORD:-${CODEX_PASSWORD}}
-      OPENAI_TOKEN: ${OPENAI_TOKEN:-${CODEX_TOKEN}}
-      ANTHROPIC_USER: ${ANTHROPIC_USER:-${CLAUDE_USER}}
-      ANTHROPIC_PASSWORD: ${ANTHROPIC_PASSWORD:-${CLAUDE_PASSWORD}}
-      ANTHROPIC_TOKEN: ${ANTHROPIC_TOKEN:-${CLAUDE_TOKEN}}
-      GEMINI_USER: ${GEMINI_USER:-${GOOGLE_USER}}
-      GEMINI_PASSWORD: ${GEMINI_PASSWORD:-${GOOGLE_PASSWORD}}
-      GEMINI_TOKEN: ${GEMINI_TOKEN:-${GOOGLE_TOKEN}}
+
     depends_on: [postgres, redis, langfuse, ollama]
     ports:
       - "8080:8080"
