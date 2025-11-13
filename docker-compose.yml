@@ -65,7 +65,7 @@ services:
     environment: &langfuse-worker-env
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/postgres} # CHANGEME
-      SALT: ${SALT:-mysalt} # CHANGEME
+      SALT: ${SALT} # REQUIRED: set a secure value
       ENCRYPTION_KEY: ${ENCRYPTION_KEY} # REQUIRED: generate via `openssl rand -hex 32`
       TELEMETRY_ENABLED: ${TELEMETRY_ENABLED:-true}
       LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: ${LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES:-true}
