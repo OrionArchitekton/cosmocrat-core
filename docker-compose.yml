@@ -58,9 +58,13 @@ services:
       # LangCache → Redis (DB index 3 recommended)
       LANGFUSE_CACHE_BACKEND: ${LANGFUSE_CACHE_BACKEND:-redis}
       LANGFUSE_REDIS_URL: ${LANGFUSE_REDIS_URL:-redis://redis:6379/3}
+      # Ensure database migrations run
+      LANGFUSE_DATABASE_URL: ${DATABASE_URL:-postgres://${DB_POSTGRESDB_USER:-${PG_USER}}:${DB_POSTGRESDB_PASSWORD:-${PG_PASSWORD}}@postgres:5432/${PG_DB:-cosmocrat}}
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
       - "3000:3000"
     healthcheck:

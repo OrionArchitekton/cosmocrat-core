@@ -31,6 +31,10 @@ Core runtime for headless MCP mini PC deployment. Includes PostgreSQL (pgvector)
 
 📖 **See [USB-SETUP.md](USB-SETUP.md) for detailed cloud-init setup**
 
+### Editing Files on edge-01
+
+📝 **See [REMOTE-EDITING.md](REMOTE-EDITING.md) for how to edit files via SSH**
+
 ### Option B: Manual Setup (5 Steps)
 
 #### 1. Clone & Enter Directory
