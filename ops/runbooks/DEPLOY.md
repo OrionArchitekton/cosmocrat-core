@@ -153,8 +153,8 @@ doppler run -- docker compose up -d
 # Stop services
 doppler run -- docker compose down
 
-# View logs
-doppler run -- docker compose logs -f
+doppler run -- docker compose logs -f# View logs
+
 
 # Restart everything
 doppler run -- docker compose restart
