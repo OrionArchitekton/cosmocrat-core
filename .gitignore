@@ -4,3 +4,9 @@ setup-manual.sh
 USB-SETUP.md
 USB-TROUBLESHOOTING.md
 user-data
+
+# OpenMemory - IDE/Assistant specific rules
+.cursor\rules\openmemory.mdc
+.cursor/rules/openmemory.mdc
+openmemory.md
+.cursor/cursor_fix_lanfuse_docker_run.md
