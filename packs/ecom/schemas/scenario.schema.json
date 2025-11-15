@@ -1,0 +1,169 @@
+{
+  "$id": "planspk.scenario",
+  "type": "object",
+  "required": [
+    "scenario_id",
+    "title",
+    "who_moves",
+    "carriers",
+    "phones",
+    "costs",
+    "coverage_and_quality",
+    "risks_and_gotchas",
+    "pros",
+    "cons",
+    "overall_fit"
+  ],
+  "properties": {
+    "scenario_id": { "type": "string" },
+    "title": { "type": "string" },
+    "who_moves": { "type": "string" },
+    "carriers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "plan_name", "network", "lines"],
+        "properties": {
+          "name": { "type": "string" },
+          "plan_name": { "type": "string" },
+          "network": { "type": "string" },
+          "lines": { "type": "integer" },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "phones": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "person",
+          "current_phone",
+          "new_phone",
+          "storage_gb",
+          "purchase_channel",
+          "is_upgrade",
+          "device_price_full",
+          "device_price_effective",
+          "device_payment_monthly",
+          "device_payment_months"
+        ],
+        "properties": {
+          "person": { "type": "string" },
+          "current_phone": { "type": "string" },
+          "new_phone": { "type": "string" },
+          "storage_gb": { "type": "integer" },
+          "purchase_channel": { "type": "string" },
+          "is_upgrade": { "type": "boolean" },
+          "trade_in_device": { "type": "string" },
+          "trade_in_credit_total": { "type": "number" },
+          "trade_in_credit_type": { "type": "string" },
+          "device_price_full": { "type": "number" },
+          "device_price_effective": { "type": "number" },
+          "device_payment_monthly": { "type": "number" },
+          "device_payment_months": { "type": "integer" }
+        }
+      }
+    },
+    "costs": {
+      "type": "object",
+      "required": [
+        "term_months",
+        "service_cost_monthly_total",
+        "device_cost_monthly_total",
+        "total_cost_service",
+        "total_cost_devices",
+        "total_cost_fees",
+        "total_cost_credits",
+        "total_cost_over_term",
+        "avg_cost_per_person_per_month"
+      ],
+      "properties": {
+        "term_months": { "type": "integer" },
+        "service_cost_monthly_total": { "type": "number" },
+        "service_cost_monthly_breakdown": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["person", "amount"],
+            "properties": {
+              "person": { "type": "string" },
+              "amount": { "type": "number" }
+            }
+          }
+        },
+        "device_cost_monthly_total": { "type": "number" },
+        "device_cost_monthly_breakdown": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["person", "amount"],
+            "properties": {
+              "person": { "type": "string" },
+              "amount": { "type": "number" }
+            }
+          }
+        },
+        "fees_upfront": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["label", "amount"],
+            "properties": {
+              "label": { "type": "string" },
+              "amount": { "type": "number" }
+            }
+          }
+        },
+        "credits_upfront": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["label", "amount"],
+            "properties": {
+              "label": { "type": "string" },
+              "amount": { "type": "number" }
+            }
+          }
+        },
+        "other_credits_total": { "type": "number" },
+        "total_cost_service": { "type": "number" },
+        "total_cost_devices": { "type": "number" },
+        "total_cost_fees": { "type": "number" },
+        "total_cost_credits": { "type": "number" },
+        "total_cost_over_term": { "type": "number" },
+        "avg_cost_per_person_per_month": { "type": "number" }
+      }
+    },
+    "coverage_and_quality": {
+      "type": "object",
+      "required": ["primary_network", "performance_score_1_to_5", "notes"],
+      "properties": {
+        "primary_network": { "type": "string" },
+        "performance_score_1_to_5": { "type": "integer" },
+        "notes": { "type": "string" }
+      }
+    },
+    "risks_and_gotchas": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "pros": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "cons": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "overall_fit": {
+      "type": "object",
+      "required": ["score_0_to_100", "is_recommended", "why_summary"],
+      "properties": {
+        "score_0_to_100": { "type": "integer" },
+        "is_recommended": { "type": "boolean" },
+        "why_summary": { "type": "string" }
+      }
+    }
+  }
+}

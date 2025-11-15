@@ -1,0 +1,47 @@
+{
+  "$id": "planspk.aggregate_output",
+  "type": "object",
+  "required": [
+    "best_overall",
+    "runner_up",
+    "premium_wildcard",
+    "comparison_table",
+    "commentary"
+  ],
+  "properties": {
+    "best_overall": { "type": "object" },
+    "runner_up": { "type": ["object", "null"] },
+    "premium_wildcard": { "type": ["object", "null"] },
+    "comparison_table": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "scenario_id",
+          "scenario_label",
+          "who_moves",
+          "carriers",
+          "phones_summary",
+          "upfront_costs",
+          "monthly_service_total",
+          "device_payments_monthly_total",
+          "term_months",
+          "total_cost_over_term",
+          "avg_cost_per_person_per_month",
+          "key_pros",
+          "key_cons"
+        ]
+      }
+    },
+    "commentary": {
+      "type": "object",
+      "required": [
+        "executive_summary_bullets",
+        "best_overall_explainer",
+        "runner_up_explainer",
+        "risks_and_fine_print",
+        "when_waiting_might_be_smarter"
+      ]
+    }
+  }
+}

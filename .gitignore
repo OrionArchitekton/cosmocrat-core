@@ -4,3 +4,17 @@ setup-manual.sh
 USB-SETUP.md
 USB-TROUBLESHOOTING.md
 user-data
+
+# OpenMemory - IDE/Assistant specific rules
+.cursor\rules\openmemory.mdc
+.cursor/rules/openmemory.mdc
+openmemory.md
+.cursor/cursor_fix_lanfuse_docker_run.md
+.clinerules/byterover-rules.md
+.kilocode/rules/byterover-rules.md
+.roo/rules/byterover-rules.md
+.windsurf/rules/byterover-rules.md
+.cursor/rules/byterover-rules.mdc
+.kiro/steering/byterover-rules.md
+.qoder/rules/byterover-rules.md
+.augment/rules/byterover-rules.md

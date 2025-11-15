@@ -10,8 +10,8 @@ services:
       - --entrypoints.web.address=:8888
     environment:
       - DOCKER_HOST=unix:///var/run/docker.sock
-      - DOCKER_API_VERSION=1.44
-      - TRAEFIK_PROVIDERS_DOCKER_APIVERSION=1.44
+      - DOCKER_API_VERSION=1.51
+      - TRAEFIK_PROVIDERS_DOCKER_APIVERSION=1.51
     ports:
       - "8888:8888"
     volumes:
