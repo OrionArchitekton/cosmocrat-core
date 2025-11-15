@@ -1,0 +1,7 @@
+{
+  "id": "planspk",
+  "name": "PlanSPK Wireless Pack",
+  "version": "0.1.0",
+  "description": "Multi-agent decision engine for wireless plans and iPhone upgrades.",
+  "entry_flow": "planspk.main"
+}
