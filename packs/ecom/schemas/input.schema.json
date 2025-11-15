@@ -1,0 +1,51 @@
+{
+  "$id": "planspk.input",
+  "type": "object",
+  "required": ["location_zip", "people", "time_horizon_months", "priorities"],
+  "properties": {
+    "location_zip": { "type": "string" },
+    "people": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "current_carrier",
+          "current_plan",
+          "current_phone",
+          "current_phone_paid_off",
+          "wants_upgrade"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "current_carrier": { "type": "string" },
+          "current_plan": { "type": "string" },
+          "current_phone": { "type": "string" },
+          "current_phone_paid_off": { "type": "boolean" },
+          "wants_upgrade": {
+            "type": ["string", "boolean"]
+          },
+          "target_min_storage_gb": { "type": "integer" }
+        }
+      }
+    },
+    "current_household_service_cost_monthly": { "type": "number" },
+    "assumed_bundle_discount_per_line": { "type": "number" },
+    "time_horizon_months": { "type": "integer" },
+    "priorities": {
+      "type": "object",
+      "required": [
+        "weight_lowest_total_cost",
+        "weight_network_quality",
+        "weight_minimum_hassle",
+        "mvno_allowed"
+      ],
+      "properties": {
+        "weight_lowest_total_cost": { "type": "number" },
+        "weight_network_quality": { "type": "number" },
+        "weight_minimum_hassle": { "type": "number" },
+        "mvno_allowed": { "type": "boolean" }
+      }
+    }
+  }
+}

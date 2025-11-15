@@ -1,0 +1,59 @@
+{
+  "id": "planspk.main",
+  "description": "Run PlanSPK multi-agent decision engine for wireless plans.",
+  "steps": [
+    {
+      "id": "validate_input",
+      "type": "validate",
+      "schema": "planspk.input",
+      "input": "{{user_input}}"
+    },
+    {
+      "id": "run_major_carrier",
+      "type": "llm",
+      "agent": "major_carrier_strategist",
+      "input_template": "{{validate_input.output}}",
+      "parallel": true
+    },
+    {
+      "id": "run_mvno",
+      "type": "llm",
+      "agent": "mvno_discount_hunter",
+      "input_template": "{{validate_input.output}}",
+      "parallel": true
+    },
+    {
+      "id": "run_stay_put",
+      "type": "llm",
+      "agent": "stay_put_optimizer",
+      "input_template": "{{validate_input.output}}",
+      "parallel": true
+    },
+    {
+      "id": "merge_scenarios",
+      "type": "code",
+      "module": "utils/normalize",
+      "function": "mergeScenarioArrays",
+      "args": {
+        "arrays": [
+          "{{run_major_carrier.output}}",
+          "{{run_mvno.output}}",
+          "{{run_stay_put.output}}"
+        ]
+      }
+    },
+    {
+      "id": "aggregate",
+      "type": "llm",
+      "agent": "aggregator",
+      "input_template": "{\"user_input\": {{validate_input.output}}, \"scenarios\": {{merge_scenarios.result}}}"
+    },
+    {
+      "id": "validate_output",
+      "type": "validate",
+      "schema": "planspk.aggregate_output",
+      "input": "{{aggregate.output}}"
+    }
+  ],
+  "output": "{{validate_output.output}}"
+}
