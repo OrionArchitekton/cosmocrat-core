@@ -1,0 +1,118 @@
+#cloud-config
+# Cloud-init configuration for Cosmocrat Core headless Ubuntu deployment
+# Place this file on USB stick as user-data (or use cloud-init format)
+
+# Set hostname
+hostname: cosmocrat-core
+fqdn: cosmocrat-core.local
+manage_etc_hosts: true
+
+# Create user (adjust username/password as needed)
+users:
+  - name: cosmocrat
+    groups: sudo, docker
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    # Set password (change this!): echo 'yourpassword' | openssl passwd -1 -stdin
+    # Or use SSH keys instead (recommended)
+    ssh_authorized_keys:
+      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC... # Your SSH public key here
+    lock_passwd: false
+    # Password hash: Use: openssl passwd -6 'yourpassword'
+    passwd: $6$rounds=4096$salt$hashedpassword  # Replace with your password hash
+
+# Update system
+package_update: true
+package_upgrade: true
+
+# Install required packages
+packages:
+  - curl
+  - wget
+  - git
+  - ca-certificates
+  - gnupg
+  - lsb-release
+  - apt-transport-https
+  - software-properties-common
+
+# Write files
+write_files:
+  # Install Doppler CLI script
+  - path: /tmp/install-doppler.sh
+    content: |
+      #!/bin/bash
+      curl -sLf --retry 3 --tlsv1.2 --proto "=https" 'https://packages.doppler.com/public/cli/gpg.DE2A7741A397C129.key' | apt-key add -
+      echo "deb https://packages.doppler.com/public/cli/deb/debian any-version main" | tee /etc/apt/sources.list.d/doppler-cli.list
+      apt-get update && apt-get install -y doppler
+    permissions: '0755'
+    owner: root:root
+
+  # Install Docker script
+  - path: /tmp/install-docker.sh
+    content: |
+      #!/bin/bash
+      apt-get update
+      apt-get install -y docker.io docker-compose-plugin
+      usermod -aG docker cosmocrat
+      systemctl enable docker
+      systemctl start docker
+    permissions: '0755'
+    owner: root:root
+
+  # Bootstrap script (runs after setup)
+  - path: /home/cosmocrat/bootstrap-deploy.sh
+    content: |
+      #!/bin/bash
+      set -e
+      cd /home/cosmocrat/cosmocrat-core
+      
+      # Make scripts executable
+      chmod +x ops/scripts/*.sh
+      
+      # Configure Doppler (interactive - user needs to run this)
+      echo "⚠️  Please run: doppler login && doppler setup"
+      echo "Then run: ./ops/scripts/bootstrap.sh"
+    permissions: '0755'
+    owner: cosmocrat:cosmocrat
+
+# Run commands
+runcmd:
+  # Install Doppler CLI
+  - /tmp/install-doppler.sh
+
+  # Install Docker
+  - /tmp/install-docker.sh
+
+  # Clone repository (update with your repo URL)
+  - |
+    if [ ! -d /home/cosmocrat/cosmocrat-core ]; then
+      sudo -u cosmocrat git clone <YOUR_REPO_URL> /home/cosmocrat/cosmocrat-core || echo "⚠️  Update cloud-init.yaml with your repo URL"
+    fi
+
+  # Set ownership
+  - chown -R cosmocrat:cosmocrat /home/cosmocrat/cosmocrat-core
+
+  # Create .bashrc additions
+  - |
+    cat >> /home/cosmocrat/.bashrc << 'EOF'
+    # Cosmocrat Core helpers
+    alias dc='doppler run -- docker compose'
+    alias dcl='doppler run -- docker compose logs -f'
+    alias dcp='doppler run -- docker compose ps'
+    EOF
+
+  # Cleanup temp files
+  - rm -f /tmp/install-doppler.sh /tmp/install-docker.sh
+
+# Final message
+final_message: |
+  Cosmocrat Core initial setup complete!
+  
+  Next steps:
+  1. SSH into the system: ssh cosmocrat@<server-ip>
+  2. Configure Doppler: doppler login && doppler setup
+  3. Deploy: cd cosmocrat-core && ./ops/scripts/bootstrap.sh
+  
+  System will reboot in 60 seconds...
+
