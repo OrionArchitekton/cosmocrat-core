@@ -1,4 +1,0 @@
-{
-  "page": "DraftsOutbox",
-  "notes": "Create a Table bound to Gmail Drafts datasource; Approve/Send button calls Gmail send; filters by label."
-}
