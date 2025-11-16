@@ -1,0 +1,10 @@
+{
+  "schema": "decision_gate",
+  "version": "1.0.0",
+  "fields": [
+    "run_id",
+    "status",
+    "reason",
+    "ts"
+  ]
+}
